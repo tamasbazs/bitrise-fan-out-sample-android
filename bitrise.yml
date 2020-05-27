@@ -1,0 +1,728 @@
+---
+format_version: '8'
+default_step_lib_source: https://github.com/bitrise-io/bitrise-steplib.git
+project_type: android
+trigger_map:
+- push_branch: "*"
+  workflow: primary
+- pull_request_source_branch: "*"
+  workflow: primary
+workflows:
+  deploy:
+    description: |
+      ## How to get a signed APK
+
+      This workflow contains the **Sign APK** step. To sign your APK all you have to do is to:
+
+      1. Click on **Code Signing** tab
+      1. Find the **ANDROID KEYSTORE FILE** section
+      1. Click or drop your file on the upload file field
+      1. Fill the displayed 3 input fields:
+       1. **Keystore password**
+       1. **Keystore alias**
+       1. **Private key password**
+      1. Click on **[Save metadata]** button
+
+      That's it! From now on, **Sign APK** step will receive your uploaded files.
+
+      ## To run this workflow
+
+      If you want to run this workflow manually:
+
+      1. Open the app's build list page
+      2. Click on **[Start/Schedule a Build]** button
+      3. Select **deploy** in **Workflow** dropdown input
+      4. Click **[Start Build]** button
+
+      Or if you need this workflow to be started by a GIT event:
+
+      1. Click on **Triggers** tab
+      2. Setup your desired event (push/tag/pull) and select **deploy** workflow
+      3. Click on **[Done]** and then **[Save]** buttons
+
+      The next change in your repository that matches any of your trigger map event will start **deploy** workflow.
+    steps:
+    - activate-ssh-key@4:
+        run_if: '{{getenv "SSH_RSA_PRIVATE_KEY" | ne ""}}'
+    - git-clone@4: {}
+    - cache-pull@2: {}
+    - script@1:
+        title: Do anything with Script step
+    - install-missing-android-tools@2:
+        inputs:
+        - gradlew_path: "$PROJECT_LOCATION/gradlew"
+    - change-android-versioncode-and-versionname@1:
+        inputs:
+        - build_gradle_path: "$PROJECT_LOCATION/$MODULE/build.gradle"
+    - android-lint@0:
+        inputs:
+        - project_location: "$PROJECT_LOCATION"
+        - module: "$MODULE"
+        - variant: "$VARIANT"
+    - android-unit-test@1:
+        inputs:
+        - project_location: "$PROJECT_LOCATION"
+        - module: "$MODULE"
+        - variant: "$VARIANT"
+    - android-build@0:
+        inputs:
+        - project_location: "$PROJECT_LOCATION"
+        - module: "$MODULE"
+        - variant: "$VARIANT"
+    - sign-apk@1:
+        run_if: '{{getenv "BITRISEIO_ANDROID_KEYSTORE_URL" | ne ""}}'
+    - deploy-to-bitrise-io@1: {}
+    - cache-push@2: {}
+  primary:
+    steps:
+    - activate-ssh-key@4:
+        run_if: '{{getenv "SSH_RSA_PRIVATE_KEY" | ne ""}}'
+    - git-clone@4: {}
+    - cache-pull@2: {}
+    - script@1:
+        title: Do anything with Script step
+    - install-missing-android-tools@2:
+        inputs:
+        - gradlew_path: "$PROJECT_LOCATION/gradlew"
+    - android-lint@0:
+        inputs:
+        - project_location: "$PROJECT_LOCATION"
+        - module: "$MODULE"
+        - variant: "$VARIANT"
+    - android-unit-test@1:
+        inputs:
+        - project_location: "$PROJECT_LOCATION"
+        - module: "$MODULE"
+        - variant: "$VARIANT"
+    - deploy-to-bitrise-io@1: {}
+    - cache-push@2: {}
+  ui_test:
+    steps:
+    - avd-manager@1: {}
+    - activate-ssh-key@4:
+        run_if: '{{getenv "SSH_RSA_PRIVATE_KEY" | ne ""}}'
+    - git-clone@4: {}
+    - cache-pull@2: {}
+    - install-missing-android-tools@2:
+        inputs:
+        - gradlew_path: "$PROJECT_LOCATION/gradlew"
+    - android-build-for-ui-testing@0:
+        inputs:
+        - variant: "$VARIANT"
+        - module: "$MODULE"
+    - wait-for-android-emulator@1: {}
+    - script@1:
+        inputs:
+        - content: |-
+            #!/usr/bin/env bash
+            # fail if any commands fails
+            set -e
+            # debug log
+            set -x
+
+            # write your script here
+            adb install $BITRISE_APK_PATH
+            adb install $BITRISE_TEST_APK_PATH
+
+            # or run a script from your repository, like:
+            # bash ./path/to/script.sh
+            # not just bash, e.g.:
+            # ruby ./path/to/script.rb
+        title: Install Test APKs
+    - script@1:
+        inputs:
+        - content: |-
+            #!/usr/bin/env bash
+            # fail if any commands fails
+            set -e
+            # debug log
+            set -x
+
+            # write your script here
+            adb shell am instrument -w com.duckduckgo.mobile.android.debug.test/com.duckduckgo.app.TestRunner
+
+            # or run a script from your repository, like:
+            # bash ./path/to/script.sh
+            # not just bash, e.g.:
+            # ruby ./path/to/script.rb
+        title: Test 1
+    - script@1:
+        inputs:
+        - content: |-
+            #!/usr/bin/env bash
+            # fail if any commands fails
+            set -e
+            # debug log
+            set -x
+
+            # write your script here
+            adb shell am instrument -w com.duckduckgo.mobile.android.debug.test/com.duckduckgo.app.TestRunner
+
+            # or run a script from your repository, like:
+            # bash ./path/to/script.sh
+            # not just bash, e.g.:
+            # ruby ./path/to/script.rb
+        title: Test 2
+    - script@1:
+        inputs:
+        - content: |-
+            #!/usr/bin/env bash
+            # fail if any commands fails
+            set -e
+            # debug log
+            set -x
+
+            # write your script here
+            adb shell am instrument -w com.duckduckgo.mobile.android.debug.test/com.duckduckgo.app.TestRunner
+
+            # or run a script from your repository, like:
+            # bash ./path/to/script.sh
+            # not just bash, e.g.:
+            # ruby ./path/to/script.rb
+        title: Test 3
+    - script@1:
+        inputs:
+        - content: |-
+            #!/usr/bin/env bash
+            # fail if any commands fails
+            set -e
+            # debug log
+            set -x
+
+            # write your script here
+            adb shell am instrument -w com.duckduckgo.mobile.android.debug.test/com.duckduckgo.app.TestRunner
+
+            # or run a script from your repository, like:
+            # bash ./path/to/script.sh
+            # not just bash, e.g.:
+            # ruby ./path/to/script.rb
+        title: Test 4
+    - script@1:
+        inputs:
+        - content: |-
+            #!/usr/bin/env bash
+            # fail if any commands fails
+            set -e
+            # debug log
+            set -x
+
+            # write your script here
+            adb shell am instrument -w com.duckduckgo.mobile.android.debug.test/com.duckduckgo.app.TestRunner
+
+            # or run a script from your repository, like:
+            # bash ./path/to/script.sh
+            # not just bash, e.g.:
+            # ruby ./path/to/script.rb
+        title: Test 5
+    - script@1:
+        inputs:
+        - content: |-
+            #!/usr/bin/env bash
+            # fail if any commands fails
+            set -e
+            # debug log
+            set -x
+
+            # write your script here
+            adb shell am instrument -w com.duckduckgo.mobile.android.debug.test/com.duckduckgo.app.TestRunner
+
+            # or run a script from your repository, like:
+            # bash ./path/to/script.sh
+            # not just bash, e.g.:
+            # ruby ./path/to/script.rb
+        title: Test 6
+    - script@1:
+        inputs:
+        - content: |-
+            #!/usr/bin/env bash
+            # fail if any commands fails
+            set -e
+            # debug log
+            set -x
+
+            # write your script here
+            adb shell am instrument -w com.duckduckgo.mobile.android.debug.test/com.duckduckgo.app.TestRunner
+
+            # or run a script from your repository, like:
+            # bash ./path/to/script.sh
+            # not just bash, e.g.:
+            # ruby ./path/to/script.rb
+        title: Test 7
+    - deploy-to-bitrise-io@1: {}
+    - cache-push@2: {}
+  ui_test_fan_out:
+    steps:
+    - avd-manager@1: {}
+    - activate-ssh-key@4:
+        run_if: '{{getenv "SSH_RSA_PRIVATE_KEY" | ne ""}}'
+    - git-clone@4: {}
+    - cache-pull@2: {}
+    - install-missing-android-tools@2:
+        inputs:
+        - gradlew_path: "$PROJECT_LOCATION/gradlew"
+    - android-build-for-ui-testing@0:
+        inputs:
+        - variant: "$VARIANT"
+        - module: "$MODULE"
+    - script@1:
+        title: Do anything with Script step
+        inputs:
+        - content: |-
+            #!/usr/bin/env bash
+            # fail if any commands fails
+            set -e
+            # debug log
+            set -x
+
+            # write your script here
+            cp $BITRISE_TEST_APK_PATH $BITRISE_DEPLOY_DIR/apptest.apk
+            cp $BITRISE_APK_PATH $BITRISE_DEPLOY_DIR/app.apk
+
+            # or run a script from your repository, like:
+            # bash ./path/to/script.sh
+            # not just bash, e.g.:
+            # ruby ./path/to/script.rb
+    - cache-push@2:
+        inputs:
+        - cache_paths: |-
+            $BITRISE_CACHE_DIR
+            $BITRISE_DEPLOY_DIR/apptest.apk
+            $BITRISE_DEPLOY_DIR/app.apk
+    - build-router-start@0:
+        inputs:
+        - workflows: |-
+            test_1
+            test_2
+            test_3
+            test_4
+            test_5
+            test_6
+        - access_token: "$token"
+    - wait-for-android-emulator@1: {}
+    - script@1:
+        inputs:
+        - content: |-
+            #!/usr/bin/env bash
+            # fail if any commands fails
+            set -e
+            # debug log
+            set -x
+
+            # write your script here
+            adb install $BITRISE_DEPLOY_DIR/apptest.apk
+            adb install $BITRISE_DEPLOY_DIR/app.apk
+
+
+            # or run a script from your repository, like:
+            # bash ./path/to/script.sh
+            # not just bash, e.g.:
+            # ruby ./path/to/script.rb
+    - script@1:
+        inputs:
+        - content: |-
+            #!/usr/bin/env bash
+            # fail if any commands fails
+            set -e
+            # debug log
+            set -x
+
+            # write your script here
+            adb shell am instrument -w com.duckduckgo.mobile.android.debug.test/com.duckduckgo.app.TestRunner
+
+            # or run a script from your repository, like:
+            # bash ./path/to/script.sh
+            # not just bash, e.g.:
+            # ruby ./path/to/script.rb
+    - build-router-wait@0:
+        inputs:
+        - access_token: "$token"
+    - deploy-to-bitrise-io@1: {}
+  test_1:
+    steps:
+    - avd-manager@1: {}
+    - cache-pull@2: {}
+    - wait-for-android-emulator@1: {}
+    - script@1:
+        inputs:
+        - content: |-
+            #!/usr/bin/env bash
+            # fail if any commands fails
+            set -e
+            # debug log
+            set -x
+
+            # write your script here
+            adb install $BITRISE_DEPLOY_DIR/apptest.apk
+            adb install $BITRISE_DEPLOY_DIR/app.apk
+
+
+            # or run a script from your repository, like:
+            # bash ./path/to/script.sh
+            # not just bash, e.g.:
+            # ruby ./path/to/script.rb
+    - script@1:
+        inputs:
+        - content: |-
+            #!/usr/bin/env bash
+            # fail if any commands fails
+            set -e
+            # debug log
+            set -x
+
+            # write your script here
+            adb shell am instrument -w com.duckduckgo.mobile.android.debug.test/com.duckduckgo.app.TestRunner
+
+            # or run a script from your repository, like:
+            # bash ./path/to/script.sh
+            # not just bash, e.g.:
+            # ruby ./path/to/script.rb
+    - deploy-to-bitrise-io@1: {}
+  test_2:
+    steps:
+    - avd-manager@1: {}
+    - cache-pull@2: {}
+    - wait-for-android-emulator@1: {}
+    - script@1:
+        inputs:
+        - content: |-
+            #!/usr/bin/env bash
+            # fail if any commands fails
+            set -e
+            # debug log
+            set -x
+
+            # write your script here
+            adb install $BITRISE_DEPLOY_DIR/apptest.apk
+            adb install $BITRISE_DEPLOY_DIR/app.apk
+
+
+            # or run a script from your repository, like:
+            # bash ./path/to/script.sh
+            # not just bash, e.g.:
+            # ruby ./path/to/script.rb
+    - script@1:
+        inputs:
+        - content: |-
+            #!/usr/bin/env bash
+            # fail if any commands fails
+            set -e
+            # debug log
+            set -x
+
+            # write your script here
+            adb shell am instrument -w com.duckduckgo.mobile.android.debug.test/com.duckduckgo.app.TestRunner
+
+            # or run a script from your repository, like:
+            # bash ./path/to/script.sh
+            # not just bash, e.g.:
+            # ruby ./path/to/script.rb
+    - deploy-to-bitrise-io@1: {}
+  test_3:
+    steps:
+    - avd-manager@1: {}
+    - cache-pull@2: {}
+    - wait-for-android-emulator@1: {}
+    - script@1:
+        inputs:
+        - content: |-
+            #!/usr/bin/env bash
+            # fail if any commands fails
+            set -e
+            # debug log
+            set -x
+
+            # write your script here
+            adb install $BITRISE_DEPLOY_DIR/apptest.apk
+            adb install $BITRISE_DEPLOY_DIR/app.apk
+
+
+            # or run a script from your repository, like:
+            # bash ./path/to/script.sh
+            # not just bash, e.g.:
+            # ruby ./path/to/script.rb
+    - script@1:
+        inputs:
+        - content: |-
+            #!/usr/bin/env bash
+            # fail if any commands fails
+            set -e
+            # debug log
+            set -x
+
+            # write your script here
+            adb shell am instrument -w com.duckduckgo.mobile.android.debug.test/com.duckduckgo.app.TestRunner
+
+            # or run a script from your repository, like:
+            # bash ./path/to/script.sh
+            # not just bash, e.g.:
+            # ruby ./path/to/script.rb
+    - deploy-to-bitrise-io@1: {}
+  test_5:
+    steps:
+    - avd-manager@1: {}
+    - cache-pull@2: {}
+    - wait-for-android-emulator@1: {}
+    - script@1:
+        inputs:
+        - content: |-
+            #!/usr/bin/env bash
+            # fail if any commands fails
+            set -e
+            # debug log
+            set -x
+
+            # write your script here
+            adb install $BITRISE_DEPLOY_DIR/apptest.apk
+            adb install $BITRISE_DEPLOY_DIR/app.apk
+
+
+            # or run a script from your repository, like:
+            # bash ./path/to/script.sh
+            # not just bash, e.g.:
+            # ruby ./path/to/script.rb
+    - script@1:
+        inputs:
+        - content: |-
+            #!/usr/bin/env bash
+            # fail if any commands fails
+            set -e
+            # debug log
+            set -x
+
+            # write your script here
+            adb shell am instrument -w com.duckduckgo.mobile.android.debug.test/com.duckduckgo.app.TestRunner
+
+            # or run a script from your repository, like:
+            # bash ./path/to/script.sh
+            # not just bash, e.g.:
+            # ruby ./path/to/script.rb
+    - deploy-to-bitrise-io@1: {}
+  test_6:
+    steps:
+    - avd-manager@1: {}
+    - cache-pull@2: {}
+    - wait-for-android-emulator@1: {}
+    - script@1:
+        inputs:
+        - content: |-
+            #!/usr/bin/env bash
+            # fail if any commands fails
+            set -e
+            # debug log
+            set -x
+
+            # write your script here
+            adb install $BITRISE_DEPLOY_DIR/apptest.apk
+            adb install $BITRISE_DEPLOY_DIR/app.apk
+
+
+            # or run a script from your repository, like:
+            # bash ./path/to/script.sh
+            # not just bash, e.g.:
+            # ruby ./path/to/script.rb
+    - script@1:
+        inputs:
+        - content: |-
+            #!/usr/bin/env bash
+            # fail if any commands fails
+            set -e
+            # debug log
+            set -x
+
+            # write your script here
+            adb shell am instrument -w com.duckduckgo.mobile.android.debug.test/com.duckduckgo.app.TestRunner
+
+            # or run a script from your repository, like:
+            # bash ./path/to/script.sh
+            # not just bash, e.g.:
+            # ruby ./path/to/script.rb
+    - deploy-to-bitrise-io@1: {}
+  test_4:
+    steps:
+    - avd-manager@1: {}
+    - cache-pull@2: {}
+    - wait-for-android-emulator@1: {}
+    - script@1:
+        inputs:
+        - content: |-
+            #!/usr/bin/env bash
+            # fail if any commands fails
+            set -e
+            # debug log
+            set -x
+
+            # write your script here
+            adb install $BITRISE_DEPLOY_DIR/apptest.apk
+            adb install $BITRISE_DEPLOY_DIR/app.apk
+
+
+            # or run a script from your repository, like:
+            # bash ./path/to/script.sh
+            # not just bash, e.g.:
+            # ruby ./path/to/script.rb
+    - script@1:
+        inputs:
+        - content: |-
+            #!/usr/bin/env bash
+            # fail if any commands fails
+            set -e
+            # debug log
+            set -x
+
+            # write your script here
+            adb shell am instrument -w com.duckduckgo.mobile.android.debug.test/com.duckduckgo.app.TestRunner
+
+            # or run a script from your repository, like:
+            # bash ./path/to/script.sh
+            # not just bash, e.g.:
+            # ruby ./path/to/script.rb
+    - deploy-to-bitrise-io@1: {}
+  ui_test_fan_out_ftl:
+    steps:
+    - activate-ssh-key@4:
+        run_if: '{{getenv "SSH_RSA_PRIVATE_KEY" | ne ""}}'
+    - git-clone@4: {}
+    - cache-pull@2: {}
+    - install-missing-android-tools@2:
+        inputs:
+        - gradlew_path: "$PROJECT_LOCATION/gradlew"
+    - android-build-for-ui-testing@0:
+        inputs:
+        - variant: "$VARIANT"
+        - module: "$MODULE"
+    - script@1:
+        title: Move the APKs to the Deploy Folder
+        inputs:
+        - content: |-
+            #!/usr/bin/env bash
+            # fail if any commands fails
+            set -e
+            # debug log
+            set -x
+
+            # write your script here
+            cp $BITRISE_TEST_APK_PATH $BITRISE_DEPLOY_DIR/apptest.apk
+            cp $BITRISE_APK_PATH $BITRISE_DEPLOY_DIR/app.apk
+
+            # or run a script from your repository, like:
+            # bash ./path/to/script.sh
+            # not just bash, e.g.:
+            # ruby ./path/to/script.rb
+    - cache-push@2:
+        inputs:
+        - cache_paths: |-
+            $BITRISE_CACHE_DIR
+            $BITRISE_DEPLOY_DIR/apptest.apk
+            $BITRISE_DEPLOY_DIR/app.apk
+    - build-router-start@0:
+        inputs:
+        - workflows: |-
+            test_1_ftl
+            test_2_ftl
+            test_3_ftl
+            test_4_ftl
+            test_5_ftl
+            test_6_ftl
+            test_7_ftl
+        - access_token: "$token"
+    - build-router-wait@0:
+        inputs:
+        - access_token: "$token"
+    - deploy-to-bitrise-io@1:
+        inputs:
+        - notify_user_groups: none
+  test_1_ftl:
+    steps:
+    - cache-pull@2: {}
+    - virtual-device-testing-for-android@1:
+        inputs:
+        - test_type: instrumentation
+        - test_apk_path: "$BITRISE_DEPLOY_DIR/apptest.apk"
+        - download_test_results: 'true'
+        - app_path: "$BITRISE_DEPLOY_DIR/app.apk"
+    - deploy-to-bitrise-io@1:
+        inputs:
+        - notify_user_groups: none
+  test_2_ftl:
+    steps:
+    - cache-pull@2: {}
+    - virtual-device-testing-for-android@1:
+        inputs:
+        - test_type: instrumentation
+        - test_apk_path: "$BITRISE_DEPLOY_DIR/apptest.apk"
+        - download_test_results: 'true'
+        - app_path: "$BITRISE_DEPLOY_DIR/app.apk"
+    - deploy-to-bitrise-io@1:
+        inputs:
+        - notify_user_groups: none
+  test_3_ftl:
+    steps:
+    - cache-pull@2: {}
+    - virtual-device-testing-for-android@1:
+        inputs:
+        - test_type: instrumentation
+        - test_apk_path: "$BITRISE_DEPLOY_DIR/apptest.apk"
+        - download_test_results: 'true'
+        - app_path: "$BITRISE_DEPLOY_DIR/app.apk"
+    - deploy-to-bitrise-io@1:
+        inputs:
+        - notify_user_groups: none
+  test_5_ftl:
+    steps:
+    - cache-pull@2: {}
+    - virtual-device-testing-for-android@1:
+        inputs:
+        - test_type: instrumentation
+        - test_apk_path: "$BITRISE_DEPLOY_DIR/apptest.apk"
+        - download_test_results: 'true'
+        - app_path: "$BITRISE_DEPLOY_DIR/app.apk"
+    - deploy-to-bitrise-io@1:
+        inputs:
+        - notify_user_groups: none
+  test_6_ftl:
+    steps:
+    - cache-pull@2: {}
+    - virtual-device-testing-for-android@1:
+        inputs:
+        - test_type: instrumentation
+        - test_apk_path: "$BITRISE_DEPLOY_DIR/apptest.apk"
+        - download_test_results: 'true'
+        - app_path: "$BITRISE_DEPLOY_DIR/app.apk"
+    - deploy-to-bitrise-io@1:
+        inputs:
+        - notify_user_groups: none
+  test_4_ftl:
+    steps:
+    - cache-pull@2: {}
+    - virtual-device-testing-for-android@1:
+        inputs:
+        - test_type: instrumentation
+        - test_apk_path: "$BITRISE_DEPLOY_DIR/apptest.apk"
+        - download_test_results: 'true'
+        - app_path: "$BITRISE_DEPLOY_DIR/app.apk"
+    - deploy-to-bitrise-io@1:
+        inputs:
+        - notify_user_groups: none
+  test_7_ftl:
+    steps:
+    - cache-pull@2: {}
+    - virtual-device-testing-for-android@1:
+        inputs:
+        - test_type: instrumentation
+        - test_apk_path: "$BITRISE_DEPLOY_DIR/apptest.apk"
+        - download_test_results: 'true'
+        - app_path: "$BITRISE_DEPLOY_DIR/app.apk"
+    - deploy-to-bitrise-io@1:
+        inputs:
+        - notify_user_groups: none
+app:
+  envs:
+  - opts:
+      is_expand: false
+    PROJECT_LOCATION: "."
+  - opts:
+      is_expand: false
+    MODULE: app
+  - opts:
+      is_expand: false
+    VARIANT: Debug
